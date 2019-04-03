@@ -19,7 +19,8 @@ def getHolidayListCountries(countryList, yearList):
                 Date.append(date)
                 Holiday_Name.append(name)
 
-    return pd.DataFrame({"Country": Country, "Date": Date, "Holiday_Name": Holiday_Name})
+    dat1 = pd.DataFrame({"Country": Country, "Date": Date, "Holiday_Name": Holiday_Name})
+    return dat1.sort_values(['Country', 'Date']).reset_index(drop=True)
 
 
 dat = getHolidayListCountries(countries, years)
