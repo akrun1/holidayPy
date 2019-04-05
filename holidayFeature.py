@@ -274,7 +274,7 @@ class HolidayFeature(object):
 
         Returns
         -------
-        The prophet object.
+        HolidayFeature object
         """
         if self.history is not None:
             raise Exception(
