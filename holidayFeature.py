@@ -5,6 +5,64 @@ import numpy as np
 from fbprophet import Prophet
 import inspect
 
+from __future__ import absolute_import, division, print_function
+
+import warnings
+
+import numpy as np
+import pandas as pd
+
+import fbprophet.hdays as hdays_part2
+import holidays as hdays_part1
+
+
+def get_holiday_names(country):
+    """Return all possible holiday names of given country
+    Parameters
+    ----------
+    country: country name
+    Returns
+    -------
+    A set of all possible holiday names of given country
+    """
+    years = np.arange(1995, 2045)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            holiday_names = getattr(hdays_part2, country)(years=years).values()
+    except AttributeError:
+        try:
+            holiday_names = getattr(hdays_part1, country)(years=years).values()
+        except AttributeError:
+            raise AttributeError(
+                "Holidays in {} are not currently supported!".format(country))
+    return set(holiday_names)
+
+
+def make_holidays_df(year_list, country):
+    """Make dataframe of holidays for given years and countries
+    Parameters
+    ----------
+    year_list: a list of years
+    country: country name
+    Returns
+    -------
+    Dataframe with 'ds' and 'holiday', which can directly feed
+    to 'holidays' params in Prophet
+    """
+    try:
+        holidays = getattr(hdays_part2, country)(years=year_list)
+    except AttributeError:
+        try:
+            holidays = getattr(hdays_part1, country)(years=year_list)
+        except AttributeError:
+            raise AttributeError(
+                "Holidays in {} are not currently supported!".format(country))
+    holidays_df = pd.DataFrame(list(holidays.items()), columns=['ds', 'holiday'])
+    holidays_df.reset_index(inplace=True, drop=True)
+    holidays_df['ds'] = pd.to_datetime(holidays_df['ds'])
+    return (holidays_df)
+
 
 def getHolidayListCountries(country_list, year_list, lower_window_list, upper_window_list):
     """
@@ -75,6 +133,12 @@ class HolidayFeature(object):
     def __init__(self, holidays=None, holidays_prior_scale=10.0):
         self.holidays = holidays
         self.holidays_prior_scale = float(holidays_prior_scale)
+        self.country_holidays = None
+        self.stan_fit = None
+        self.params = {}
+        self.history = None
+        self.history_dates = None
+        self.train_holiday_names = None
         self.validate_inputs()
 
     def validate_inputs(self):
@@ -274,12 +338,13 @@ class HolidayFeature(object):
 
         Returns
         -------
-        HolidayFeature object
+        The HolidayFeature object.
         """
         if self.history is not None:
             raise Exception(
                 "Country holidays must be added prior to model fitting."
             )
+
         # Validate names.
         for name in get_holiday_names(country_name):
             # Allow merging with existing holidays
